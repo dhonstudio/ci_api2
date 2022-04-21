@@ -21,6 +21,9 @@ class DhonMigrate
         $this->load     = $this->dhonmigrate->load;
         $this->db       = $this->load->database($this->database, TRUE);
         $this->dbforge  = $this->load->dbforge($this->db, TRUE);
+
+        require_once APPPATH . 'libraries/DhonJson.php';
+        $this->dhonjson = new DhonJson;
     }
 
     /**
@@ -163,11 +166,10 @@ class DhonMigrate
             if ($force == 'force') {
                 $this->dbforge->drop_table($this->table);
             } else {
-                $response   = "failed";
-                $status     = '304';
-                $data       = ["Table `{$this->table}` exist"];
+                $status     = 400;
+                $message    = "Table `{$this->table}` exist";
 
-                $this->send($response, $status, $data);
+                $this->dhonjson->send(['status' => $status, 'message' => $message]);
             }
         }
         $this->dbforge->add_field($this->fields);
@@ -212,18 +214,19 @@ class DhonMigrate
 
         $action == 'change' ? $migration->change() : ($action == 'drop' ? $migration->drop() : $migration->up());
 
-        $response   = 'Migration success';
-        $status     = '200';
-        $this->send($response, $status);
+        $status     = 200;
+        $message    = 'Migration success';
+        $this->dhonjson->send(['status' => $status, 'message' => $message]);
     }
 
     /**
      * Create migration file
      *
      * @param	string  $migration_name
+     * @param	string  $dev optional ('dev' | '')
      * @return	void
      */
-    public function create(string $migration_name)
+    public function create(string $migration_name, string $dev = '')
     {
         $this->load->helper('file');
 
@@ -236,6 +239,7 @@ class DhonMigrate
         $file_location  = $folder_location . $timestamp . $migration_name . '.php';
         fopen($file_location, "w");
 
+        $create_dev = $dev == 'dev' ? "\$this->_dev();" : "";
         $data = "<?php
 
 class Migration_" . ucfirst($migration_name) . "
@@ -262,7 +266,7 @@ class Migration_" . ucfirst($migration_name) . "
 
         \$this->dhonmigrate->insert(['username' => 'admin', 'password' => password_hash('admin', PASSWORD_DEFAULT)]);
 
-        \$this->_dev();
+        " . $create_dev . "
     }
 
     private function _dev()
@@ -284,23 +288,9 @@ class Migration_" . ucfirst($migration_name) . "
 }
         ";
         write_file($file_location, $data, 'r+');
-    }
 
-    /**
-     * Send return as JSON
-     *
-     * @param	string  $response
-     * @param	int     $status
-     * @param	array   $data optional
-     * @return	echo json_encode
-     */
-    private function send(string $response, int $status, array $data = [])
-    {
-        header('Content-Type: application/json');
-        header('Access-Control-Allow-Origin: *');
-        $json_response = ['response' => $response, 'status' => $status];
-        if (count($data) > 0) $json_response['data'] = $data;
-        echo json_encode($json_response, JSON_NUMERIC_CHECK);
-        exit;
+        $status     = 200;
+        $message    = 'Migration file successfully created';
+        $this->dhonjson->send(['status' => $status, 'message' => $message]);
     }
 }

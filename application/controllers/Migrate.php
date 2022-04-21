@@ -15,7 +15,7 @@ class Migrate extends CI_Controller
         $database                   = 'project';
         $this->migration_method     = 'one'; // one | all
         $this->migration_file       = 'apiusers'; // same with migration created
-        $this->migration_version    = '20220421141007'; // same with migration created
+        $this->migration_version    = '20220421145936'; // same with migration created
 
         require_once APPPATH . 'libraries/DhonMigrate.php';
         $this->dhonmigrate = new DhonMigrate(['database' => $database]);
@@ -27,8 +27,8 @@ class Migrate extends CI_Controller
         $this->migration_method == 'one' ? $this->dhonmigrate->migrate($this->migration_file) : '';
     }
 
-    public function create(string $migration_name)
+    public function create(string $migration_name, string $dev = '')
     {
-        $this->dhonmigrate->create($migration_name);
+        $this->dhonmigrate->create($migration_name, $dev);
     }
 }

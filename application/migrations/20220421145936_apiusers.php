@@ -10,7 +10,7 @@ class Migration_Apiusers
         require_once APPPATH . 'libraries/DhonMigrate.php';
         $this->dhonmigrate = new DhonMigrate(['database' => $this->database]);
     }
-    
+
     public function up()
     {
         $this->dhonmigrate->table = 'api_users';
@@ -20,11 +20,10 @@ class Migration_Apiusers
         $this->dhonmigrate->field('created_at', 'INT');
         $this->dhonmigrate->field('updated_at', 'INT');
         $this->dhonmigrate->add_key('id_user');
-        $this->dhonmigrate->create_table();
+        $this->dhonmigrate->create_table('force');
 
         $this->dhonmigrate->insert(['username' => 'admin', 'password' => password_hash('admin', PASSWORD_DEFAULT)]);
-
-        $this->_dev();
+        $this->dhonmigrate->insert(['username' => 'admina', 'password' => password_hash('admin', PASSWORD_DEFAULT)]);
     }
 
     private function _dev()
@@ -44,4 +43,3 @@ class Migration_Apiusers
         # code...
     }
 }
-        
