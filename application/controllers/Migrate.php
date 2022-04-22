@@ -14,16 +14,16 @@ class Migrate extends CI_Controller
         */
         $database                   = 'project';
         $this->migration_method     = 'one'; // one | all
-        $this->migration_file       = 'apiusers'; // same with migration created
-        $this->migration_version    = '20220421145936'; // same with migration created
+        $this->migration_file       = 'api_users'; // same with migration file created
+        $this->migration_version    = '20220422145307'; // same with migration file created
 
         require_once APPPATH . 'libraries/DhonMigrate.php';
         $this->dhonmigrate = new DhonMigrate(['database' => $database]);
-        $this->dhonmigrate->version = $this->migration_version;
     }
 
     public function index()
     {
+        $this->dhonmigrate->version = $this->migration_version;
         $this->migration_method == 'one' ? $this->dhonmigrate->migrate($this->migration_file) : '';
     }
 

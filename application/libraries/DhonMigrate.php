@@ -2,14 +2,14 @@
 
 class DhonMigrate
 {
-    public $version;
     protected $database;
+    public $version;
     protected $db;
     protected $dbforge;
     public $table;
     protected $constraint;
-    protected $unique;
     protected $ai;
+    protected $unique;
     protected $default;
     protected $fields = [];
 
@@ -17,13 +17,34 @@ class DhonMigrate
     {
         $this->dhonmigrate = &get_instance();
 
-        $this->database = $params['database'];
-        $this->load     = $this->dhonmigrate->load;
-        $this->db       = $this->load->database($this->database, TRUE);
-        $this->dbforge  = $this->load->dbforge($this->db, TRUE);
-
         require_once APPPATH . 'libraries/DhonJson.php';
         $this->dhonjson = new DhonJson;
+
+        $this->database = $params['database'];
+        include APPPATH . "config/production/database.php";
+
+        if (!in_array($this->database, array_keys($db))) {
+            $status     = 404;
+            $message    = 'Database name not found';
+            $this->dhonjson->send(['status' => $status, 'message' => $message]);
+        }
+
+        $this->load = $this->dhonmigrate->load;
+
+        $this->load->dbutil();
+        if (!$this->dhonmigrate->dbutil->database_exists($db[$this->database]['database'])) {
+            if (isset($params['database_dev'])) {
+                $status     = 417;
+                $message    = 'Migration success, but development database migration not success';
+            } else {
+                $status     = 404;
+                $message    = 'Database not found';
+            }
+            $this->dhonjson->send(['status' => $status, 'message' => $message]);
+        }
+
+        $this->db       = $this->load->database($this->database, TRUE);
+        $this->dbforge  = $this->load->dbforge($this->db, TRUE);
     }
 
     /**
@@ -85,8 +106,8 @@ class DhonMigrate
         $field_data['type'] = $type;
 
         if ($this->constraint !== '')   $field_data['constraint']       = $this->constraint;
-        if ($this->unique === TRUE)     $field_data['unique']           = $this->unique;
         if ($this->ai === TRUE)         $field_data['auto_increment']   = $this->ai;
+        if ($this->unique === TRUE)     $field_data['unique']           = $this->unique;
         if ($this->default !== '')      $field_data['default']          = $this->default;
         if ($nullable === 'nullable')   $field_data['null']             = TRUE;
 
@@ -104,8 +125,8 @@ class DhonMigrate
 
         $this->fields = array_merge($this->fields, $field_element);
         $this->constraint = '';
-        $this->unique = FALSE;
         $this->ai = FALSE;
+        $this->unique = FALSE;
         $this->default = '';
     }
 
@@ -166,7 +187,7 @@ class DhonMigrate
             if ($force == 'force') {
                 $this->dbforge->drop_table($this->table);
             } else {
-                $status     = 400;
+                $status     = 406;
                 $message    = "Table `{$this->table}` exist";
 
                 $this->dhonjson->send(['status' => $status, 'message' => $message]);
@@ -195,13 +216,22 @@ class DhonMigrate
      * Do Migrate
      *
      * @param	string  $classname
-     * @param	string  $action optional ('change', 'drop')
+     * @param	string  $action optional ('' | 'change' | 'drop')
      * @return	void
      */
     public function migrate(string $classname, string $action = '')
     {
         // $path = ENVIRONMENT == 'testing' || ENVIRONMENT == 'development' ? "\\" : "/";
-        require APPPATH . "migrations/{$this->version}_{$classname}.php";
+        $migration_file = APPPATH . "migrations/{$this->version}_{$classname}.php";
+
+        if (!file_exists($migration_file)) {
+            $status     = 404;
+            $message    = 'Migration file not found';
+            $this->dhonjson->send(['status' => $status, 'message' => $message]);
+        }
+
+        require $migration_file;
+
         $migration_name = "Migration_{$classname}";
         $migration      = new $migration_name(['database' => $this->database]);
 
@@ -235,11 +265,11 @@ class DhonMigrate
             mkdir($folder_location, 0777, true);
         }
         $timestamp      = date('YmdHis_', time());
-        // $timestamp      = '2022_';
         $file_location  = $folder_location . $timestamp . $migration_name . '.php';
         fopen($file_location, "w");
 
-        $create_dev = $dev == 'dev' ? "\$this->_dev();" : "";
+        $create_dev = $dev == 'dev' ? "if (\$this->dev == false) \$this->_dev();" : "";
+
         $data = "<?php
 
 class Migration_" . ucfirst($migration_name) . "
@@ -255,7 +285,7 @@ class Migration_" . ucfirst($migration_name) . "
     
     public function up()
     {
-        \$this->dhonmigrate->table = 'api_users';
+        \$this->dhonmigrate->table = '$migration_name';
         \$this->dhonmigrate->ai()->field('id_user', 'INT');
         \$this->dhonmigrate->constraint('100')->unique()->field('username', 'VARCHAR');
         \$this->dhonmigrate->constraint('200')->field('password', 'VARCHAR');
@@ -266,12 +296,12 @@ class Migration_" . ucfirst($migration_name) . "
 
         \$this->dhonmigrate->insert(['username' => 'admin', 'password' => password_hash('admin', PASSWORD_DEFAULT)]);
 
-        " . $create_dev . "
+        $create_dev
     }
 
     private function _dev()
     {
-        \$this->dhonmigrate = new DhonMigrate(['database' => \$this->database . '_dev']);
+        \$this->dhonmigrate = new DhonMigrate(['database' => \$this->database . '_dev', 'database_dev' => true]);
         \$this->dev = true;
         \$this->up();
     }
