@@ -212,11 +212,18 @@ class DhonJson
     private function post()
     {
         foreach ($_POST as $key => $value) {
-            $value = strpos($value, 'dansimbol') !== false ? str_replace('dansimbol', '&', $value) : $value;
+            $value = strpos($value, 'dansimbol') !== false ?
+                str_replace('dansimbol', '&', $value) : $value;
             if (in_array($key, $this->fields)) $posts[$key] = $value;
         }
-        !isset($_POST[$this->fields[0]]) && in_array('stamp', $this->fields) ? $posts['stamp'] = time() : false;
-        !isset($_POST[$this->fields[0]]) && in_array('created_at', $this->fields) ? $posts['created_at'] = time() : (in_array('modified_at', $this->fields) ? $posts['modified_at'] = time() : false);
+        !isset($_POST[$this->fields[0]]) && in_array('stamp', $this->fields) ?
+            $posts['stamp'] = time() : false;
+        !isset($_POST[$this->fields[0]]) && in_array('created_at', $this->fields) ? $posts['created_at'] = time()
+            : (in_array('modified_at', $this->fields) ? $posts['modified_at'] = time()
+                : (in_array('updated_at', $this->fields) ? $posts['updated_at'] = time()
+                    : false
+                )
+            );
         if (isset($_POST[$this->fields[0]])) {
             $id = $posts[$this->fields[0]];
             $this->db->update($this->table, $posts, [$this->fields[0] => $id]);
