@@ -32,7 +32,7 @@ class DhonMigrate
         $this->load = $this->dhonmigrate->load;
 
         $this->load->dbutil();
-        if (!$this->dhonmigrate->dbutil->database_exists($db[$this->database]['database'])) {
+        if (ENVIRONMENT == 'development' && !$this->dhonmigrate->dbutil->database_exists($db[$this->database]['database'])) {
             if (isset($params['database_dev'])) {
                 $status     = 417;
                 $message    = 'Migration success, but development database migration not success';

@@ -8,7 +8,6 @@ class DhonJson
     protected $id;
     protected $db;
     protected $db_total;
-    protected $db_default;
     protected $fields;
     protected $json_response;
     protected $data;
@@ -17,13 +16,14 @@ class DhonJson
     {
         $this->dhonjson = &get_instance();
 
-        $this->load = $this->dhonjson->load;
         $this->uri  = $this->dhonjson->uri;
 
         $this->db_name  = $this->uri->segment(1);
         $this->table    = $this->uri->segment(2);
         $this->command  = $this->uri->segment(3);
         $this->id       = $this->uri->segment(4);
+
+        $this->load = $this->dhonjson->load;
     }
 
     /**
@@ -37,25 +37,32 @@ class DhonJson
         include APPPATH . "config/production/database.php";
 
         if (in_array($api_db_name, array_keys($db))) {
-            $api_db = $this->load->database($api_db_name, TRUE);
+            $this->load->dbutil();
+            if (ENVIRONMENT == 'development' && !$this->dhonjson->dbutil->database_exists($db[$api_db_name]['database'])) {
+                $status     = 404;
+                $message    = "API db not found";
+                $this->send(['status' => $status, 'message' => $message]);
+            } else {
+                $api_db = $this->load->database($api_db_name, TRUE);
 
-            if ($api_db->table_exists('api_users')) {
-                if (isset($_SERVER['PHP_AUTH_USER'])) {
-                    $user = $api_db->get_where('api_users', ['username' => $_SERVER['PHP_AUTH_USER']])->row_array();
-                    if (!$user || !password_verify($_SERVER['PHP_AUTH_PW'], $user['password'])) {
+                if ($api_db->table_exists('api_users')) {
+                    if (isset($_SERVER['PHP_AUTH_USER'])) {
+                        $user = $api_db->get_where('api_users', ['username' => $_SERVER['PHP_AUTH_USER']])->row_array();
+                        if (!$user || !password_verify($_SERVER['PHP_AUTH_PW'], $user['password'])) {
+                            $this->_unauthorized();
+                        }
+                    } else {
                         $this->_unauthorized();
                     }
                 } else {
-                    $this->_unauthorized();
+                    $status     = 404;
+                    $message    = "API table not found";
+                    $this->send(['status' => $status, 'message' => $message]);
                 }
-            } else {
-                $status     = 404;
-                $message    = "API table not found";
-                $this->send(['status' => $status, 'message' => $message]);
             }
         } else {
             $status     = 404;
-            $message    = "API db not found";
+            $message    = "API db name not found";
             $this->send(['status' => $status, 'message' => $message]);
         }
     }
@@ -84,31 +91,36 @@ class DhonJson
             if (in_array($this->db_name, array_keys($db))) {
                 $this->db           = $this->load->database($this->db_name, TRUE);
                 $this->db_total     = $this->load->database($this->db_name, TRUE);
-                $this->db_default   = $this->load->database($this->db_name, TRUE);
 
-                if ($this->table && $this->db->table_exists($this->table)) {
-                    $this->fields   = $this->db->list_fields($this->table);
+                if ($this->table) {
+                    if ($this->db->table_exists($this->table)) {
+                        $this->fields   = $this->db->list_fields($this->table);
 
-                    $status     = 200;
-                    $this->json_response = ['status' => $status];
+                        $status = 200;
+                        $this->json_response = ['status' => $status];
 
-                    if ($this->command == 'delete') $this->delete();
-                    else if ($this->command == 'password_verify') $this->password_verify();
-                    else if ($this->command == '') {
-                        if ($_GET) $this->get_where();
-                        else if ($_POST) $this->post();
-                        else $this->get();
+                        if ($this->command == 'delete') $this->delete();
+                        else if ($this->command == 'password_verify') $this->password_verify();
+                        else if ($this->command == '') {
+                            if ($_GET) $this->get_where();
+                            else if ($_POST) $this->post();
+                            else $this->get();
+                        } else {
+                            $this->json_response['status']  = 405;
+                        }
+
+                        $message = isset($this->json_response['message']) ? $this->json_response['message'] : '';
+                        $total = isset($this->json_response['total']) ? $this->json_response['total'] : -1;
+                        $data = isset($this->json_response['data']) ? $this->json_response['data'] : '';
+
+                        $this->send(['status' => $this->json_response['status'], 'message' => $message, 'total' => $total, 'data' => $data]);
                     } else {
-                        $this->json_response['status']  = 405;
+                        $status     = 404;
+                        $message    = 'Table not found';
                     }
-
-                    $data = isset($this->json_response['data']) ? $this->json_response['data'] : [];
-                    $message = isset($this->json_response['message']) ? $this->json_response['message'] : '';
-
-                    $this->send(['status' => $this->json_response['status'], 'data' => $data, 'message' => $message]);
                 } else {
-                    $status     = 404;
-                    $message    = 'Table not found';
+                    $status     = 500;
+                    $message    = '';
                 }
             } else {
                 $status     = 404;
@@ -126,7 +138,7 @@ class DhonJson
         $this->db   = $this->db->get($this->table);
         $data       = $this->db->result_array();
         $this->json_response['total']   = $this->db->num_rows();
-        $this->json_response['data']    = count($data) > 0 ? $data : 'empty';
+        $this->json_response['data']    = $data;
     }
 
     private function get_where()
@@ -200,12 +212,16 @@ class DhonJson
 
     private function delete()
     {
-        if ($this->db->get_where($this->table, [$this->fields[0] => $this->id])->row_array()) {
-            $this->db->delete($this->table, [$this->fields[0] => $this->id]);
-            $this->json_response['data'] = ['id' => $this->id];
+        if ($this->id) {
+            if ($this->db->get_where($this->table, [$this->fields[0] => $this->id])->row_array()) {
+                $this->db->delete($this->table, [$this->fields[0] => $this->id]);
+                $this->json_response['data'] = ['id' => $this->id];
+            } else {
+                $this->json_response['status']  = 404;
+                $this->json_response['message'] = 'ID not found';
+            }
         } else {
-            $this->json_response['status']  = 404;
-            $this->json_response['message'] = 'ID not found';
+            $this->json_response['status']  = 500;
         }
     }
 
@@ -236,15 +252,15 @@ class DhonJson
     /**
      * Send return as JSON
      *
-     * @param	array   $params optional ['response' => 'string', 'status' => int, 'data' => array(), 'message' => 'string']
+     * @param	array   $params optional ['response' => 'string', 'status' => int, 'message' => 'string', 'total' => int, 'data' => array()]
      * @return	echo    json_encode
      */
     public function send(array $params = [])
     {
         $status     = isset($params['status']) ? $params['status'] : 500;
-        $data       = isset($params['data']) ? $params['data'] : [];
+        $data       = isset($params['data']) ? $params['data'] : '';
         $message    = isset($params['message']) ? $params['message'] : '';
-        $total      = isset($params['total']) ? $params['total'] : 0;
+        $total      = isset($params['total']) ? $params['total'] : -1;
 
         header('Content-Type: application/json');
         header('Access-Control-Allow-Origin: *');
@@ -268,16 +284,10 @@ class DhonJson
         header("HTTP/1.1 {$status} {$response}");
 
         $json_response = ['response' => $response, 'status' => $status];
-        // if ($data || count($data) > 0) {
-        //     if ($data == [false]) {
-        //         $json_response['data'] = false;
-        //     } else if ($data == 'empty') {
-        //         $json_response['data'] = [];
-        //     } else {
-        //         $json_response['data'] = $data;
-        //     }
-        // }
-        if ($message) $json_response['message'] = $message;
+        if ($message != '') $json_response['message'] = $message;
+        if ($total != -1) $json_response['total'] = $total;
+        if ($data === [false]) $json_response['data'] = false;
+        else if ($data != '') $json_response['data'] = $data;
 
         echo json_encode($json_response, JSON_NUMERIC_CHECK);
         exit;

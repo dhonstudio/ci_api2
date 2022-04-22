@@ -10,7 +10,7 @@ class Migration_Api_users
         require_once APPPATH . 'libraries/DhonMigrate.php';
         $this->dhonmigrate = new DhonMigrate(['database' => $this->database]);
     }
-    
+
     public function up()
     {
         $this->dhonmigrate->table = 'api_users';
@@ -23,8 +23,7 @@ class Migration_Api_users
         $this->dhonmigrate->create_table();
 
         $this->dhonmigrate->insert(['username' => 'admin', 'password' => password_hash('admin', PASSWORD_DEFAULT)]);
-
-        if ($this->dev == false) $this->_dev();
+        $this->dhonmigrate->insert(['username' => 'admina', 'password' => password_hash('admin', PASSWORD_DEFAULT)]);
     }
 
     private function _dev()
@@ -44,4 +43,3 @@ class Migration_Api_users
         # code...
     }
 }
-        
