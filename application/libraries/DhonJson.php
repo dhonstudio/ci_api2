@@ -111,9 +111,12 @@ class DhonJson
 
                         $message = isset($this->json_response['message']) ? $this->json_response['message'] : '';
                         $total = isset($this->json_response['total']) ? $this->json_response['total'] : -1;
+                        $result = isset($this->json_response['result']) ? $this->json_response['result'] : '';
+                        $paging = isset($this->json_response['paging']) ? $this->json_response['paging'] : '';
+                        $page = isset($this->json_response['page']) ? $this->json_response['page'] : '';
                         $data = isset($this->json_response['data']) ? $this->json_response['data'] : '';
 
-                        $this->send(['status' => $this->json_response['status'], 'message' => $message, 'total' => $total, 'data' => $data]);
+                        $this->send(['status' => $this->json_response['status'], 'message' => $message, 'total' => $total, 'result' => $result, 'paging' => $paging, 'page' => $page, 'data' => $data]);
                     } else {
                         $status     = 404;
                         $message    = 'Table not found';
@@ -156,8 +159,8 @@ class DhonJson
         }
 
         if (array_key_exists('sort_by', $_GET)) {
-            $sort_by         = $_GET['sort_by'];
-            $sort_method    = $_GET['sort_method'];
+            $sort_by        = $_GET['sort_by'];
+            $sort_method    = isset($_GET['sort_method']) ? $_GET['sort_method'] : 'asc';
 
             $this->db         = $this->db->order_by($sort_by, $sort_method);
             $this->db_total    = $this->db_total->order_by($sort_by, $sort_method);
@@ -178,18 +181,32 @@ class DhonJson
         }
 
         if (array_key_exists('limit', $_GET)) {
-            $limit       = $_GET['limit'];
-            $offset      = $_GET['offset'] * $limit;
+            $limit      = $_GET['limit'];
+            $get_offset = isset($_GET['offset']) ? $_GET['offset'] : 0;
+            $offset     = $get_offset * $limit;
 
             $this->db = $this->db->limit($limit, $offset);
-            $this->json_response['paging'] = TRUE;
-            $this->json_response['page'] = $_GET['offset'] + 1;
+            $this->json_response['paging']  = TRUE;
+            $this->json_response['page']    = $get_offset + 1;
         }
 
-        $this->json_response['total']   = $this->db_total->get_where($this->table, $get_where)->num_rows();
-        $this->data                     = $this->db->get_where($this->table, $get_where)->result_array();
-
-        $this->json_response['data'] = $this->data;
+        if (isset($get_where)) {
+            $this->json_response['total']   = $this->db_total->get_where($this->table, $get_where)->num_rows();
+            $this->json_response['data']    = $this->db->get_where($this->table, $get_where)->result_array();
+        } else if (
+            array_key_exists('sort_by', $_GET) ||
+            array_key_exists('keyword', $_GET)
+        ) {
+            $this->json_response['total']   = $this->db_total->get($this->table)->num_rows();
+            $this->json_response['data']    = $this->db->get($this->table)->result_array();
+        } else if (array_key_exists('limit', $_GET)) {
+            $total = $this->db_total->get($this->table)->num_rows();
+            $this->json_response['total']   = $total;
+            $this->json_response['result']  = $total < $limit ? $total : $limit;
+            $this->json_response['data']    = $this->db->get($this->table)->result_array();
+        } else {
+            $this->json_response['status']  = 405;
+        }
     }
 
     private function post()
@@ -252,18 +269,22 @@ class DhonJson
     /**
      * Send return as JSON
      *
-     * @param	array   $params optional ['response' => 'string', 'status' => int, 'message' => 'string', 'total' => int, 'data' => array()]
+     * @param	array   $params optional ['response' => 'string', 'status' => int, 'message' => 'string', 'total' => int, 'result' => int, 'paging' => boolean, 'page' => int, 'data' => array()]
      * @return	echo    json_encode
      */
     public function send(array $params = [])
     {
         $status     = isset($params['status']) ? $params['status'] : 500;
-        $data       = isset($params['data']) ? $params['data'] : '';
         $message    = isset($params['message']) ? $params['message'] : '';
         $total      = isset($params['total']) ? $params['total'] : -1;
+        $result     = isset($params['result']) ? $params['result'] : '';
+        $paging     = isset($params['paging']) ? $params['paging'] : '';
+        $page       = isset($params['page']) ? $params['page'] : '';
+        $data       = isset($params['data']) ? $params['data'] : '';
 
         header('Content-Type: application/json');
         header('Access-Control-Allow-Origin: *');
+        // header('WWW-Authenticate: Basic realm="My Realm"');
 
         $response =
             $status == 400 ? 'Bad Request'
@@ -286,6 +307,9 @@ class DhonJson
         $json_response = ['response' => $response, 'status' => $status];
         if ($message != '') $json_response['message'] = $message;
         if ($total != -1) $json_response['total'] = $total;
+        if ($result != '') $json_response['result'] = $result;
+        if ($paging != '') $json_response['paging'] = $paging;
+        if ($page != '') $json_response['page'] = $page;
         if ($data === [false]) $json_response['data'] = false;
         else if ($data != '') $json_response['data'] = $data;
 
