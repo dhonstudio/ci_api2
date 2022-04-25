@@ -213,7 +213,9 @@ class DhonJson
     {
         foreach ($_POST as $key => $value) {
             $value = strpos($value, 'dansimbol') !== false ?
-                str_replace('dansimbol', '&', $value) : $value;
+                str_replace('dansimbol', '&', $value)
+                : ($key == 'password' || $key == 'password_hash' ? password_hash($value, PASSWORD_DEFAULT) : $value);
+
             if (in_array($key, $this->fields)) $posts[$key] = $value;
         }
         !isset($_POST[$this->fields[0]]) && in_array('stamp', $this->fields) ?
@@ -224,14 +226,21 @@ class DhonJson
                     : false
                 )
             );
+
         if (isset($_POST[$this->fields[0]])) {
             $id = $posts[$this->fields[0]];
             $this->db->update($this->table, $posts, [$this->fields[0] => $id]);
         } else {
-            $this->db->insert($this->table, $posts);
-            $id = $this->db->insert_id();
+            $id = $this->db->insert($this->table, $posts) ? $this->db->insert_id() : 0;
         }
-        $this->json_response['data'] = $this->db->get_where($this->table, [$this->fields[0] => $id])->row_array();
+
+        if ($id != 0) {
+            $this->json_response['data']    = $this->db->get_where($this->table, [$this->fields[0] => $id])->row_array();
+        } else {
+            $this->json_response['status']  = 406;
+            $this->json_response['data']    = [false];
+            $this->json_response['message'] = 'Duplicate detected';
+        }
     }
 
     private function delete()
@@ -239,6 +248,10 @@ class DhonJson
         if ($this->id) {
             if ($this->db->get_where($this->table, [$this->fields[0] => $this->id])->row_array()) {
                 $this->db->delete($this->table, [$this->fields[0] => $this->id]);
+
+                $query = "ALTER TABLE $this->table AUTO_INCREMENT = 1";
+                $this->db->query($query);
+
                 $this->json_response['data'] = ['id' => $this->id];
             } else {
                 $this->json_response['status']  = 404;
