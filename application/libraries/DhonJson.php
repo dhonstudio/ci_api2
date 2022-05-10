@@ -220,7 +220,7 @@ class DhonJson
         }
         !isset($_POST[$this->fields[0]]) && in_array('stamp', $this->fields) ?
             $posts['stamp'] = time() : false;
-        !isset($_POST[$this->fields[0]]) && in_array('created_at', $this->fields) ? $posts['created_at'] = time()
+        !isset($_POST[$this->fields[0]]) && in_array('created_at', $this->fields) && !isset($_POST['created_at']) ? $posts['created_at'] = time()
             : (in_array('modified_at', $this->fields) ? $posts['modified_at'] = time()
                 : (in_array('updated_at', $this->fields) ? $posts['updated_at'] = time()
                     : false
