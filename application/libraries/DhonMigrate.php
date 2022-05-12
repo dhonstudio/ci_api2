@@ -293,7 +293,7 @@ class DhonMigrate
         $file_location  = $folder_location . $timestamp . $migration_name . '.php';
         fopen($file_location, "w");
 
-        $create_dev = $dev == 'dev' ? "if (\$this->dev == false) \$this->_dev();" : "";
+        $create_dev = $dev == 'dev' ? "false" : "true";
 
         $data = "<?php
 
@@ -302,7 +302,7 @@ class Migration_" . ucfirst($migration_name) . "
     public function __construct(array \$params)
     {
         \$this->database = \$params['database'];
-        \$this->dev      = false;
+        \$this->dev      = $create_dev;
 
         require_once APPPATH . 'libraries/DhonMigrate.php';
         \$this->dhonmigrate = new DhonMigrate(['database' => \$this->database]);
@@ -321,24 +321,40 @@ class Migration_" . ucfirst($migration_name) . "
 
         \$this->dhonmigrate->insert(['username' => 'admin', 'password' => password_hash('admin', PASSWORD_DEFAULT)]);
 
-        $create_dev
+        if (\$this->dev == false) \$this->_dev('up');
     }
 
-    private function _dev()
+    private function _dev(string \$next)
     {
         \$this->dhonmigrate = new DhonMigrate(['database' => \$this->database . '_dev', 'database_dev' => true]);
         \$this->dev = true;
-        \$this->up();
+        \$next == 'up' ? \$this->up()
+            : (\$next == 'change' ? \$this->change()
+                : (\$next == 'drop' ? \$this->drop()
+                    : \$this->relate()
+                )
+            );
     }
 
     public function change()
     {
         # code...
+
+        if (\$this->dev == false) \$this->_dev('change');
     }
 
     public function drop()
     {
         # code...
+
+        if (\$this->dev == false) \$this->_dev('drop');
+    }
+
+    public function relate()
+    {
+        # code...
+
+        if (\$this->dev == false) \$this->_dev('relate');
     }
 }
         ";
