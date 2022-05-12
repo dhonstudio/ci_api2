@@ -211,6 +211,20 @@ class DhonMigrate
     }
 
     /**
+     * Relation between table
+     *
+     * @param	int     $number
+     * @param	string  $foreign_key
+     * @param	string  $relation_table
+     * @param	string  $primary_key
+     * @return	void
+     */
+    public function relate(int $number, string $foreign_key, string $relation_table, string $primary_key)
+    {
+        $this->db->query("ALTER TABLE `{$this->table}` ADD CONSTRAINT `{$this->table}_ibfk_{$number}` FOREIGN KEY (`{$foreign_key}`) REFERENCES `{$relation_table}`(`{$primary_key}`) ON DELETE CASCADE ON UPDATE CASCADE");
+    }
+
+    /**
      * Insert data to table
      *
      * @param	array  $value multidimentional array
@@ -253,7 +267,7 @@ class DhonMigrate
         }
         $this->db->insert($this->table, ['version' => date('YmdHis', time())]);
 
-        $action == 'change' ? $migration->change() : ($action == 'drop' ? $migration->drop() : $migration->up());
+        $action == 'change' ? $migration->change() : ($action == 'drop' ? $migration->drop() : ($action == 'relate' ? $migration->relate() : $migration->up()));
 
         $status     = 200;
         $message    = 'Migration success';
