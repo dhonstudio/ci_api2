@@ -142,6 +142,17 @@ class DhonMigrate
     }
 
     /**
+     * Initialize key
+     *
+     * @param	string  $field_name
+     * @return	void
+     */
+    public function add_index(string $field_name)
+    {
+        $this->dbforge->add_key($field_name);
+    }
+
+    /**
      * To add new field on existing table
      *
      * @return	void
