@@ -352,7 +352,19 @@ class Migration_" . ucfirst($migration_name) . "
 
     public function relate()
     {
-        # code...
+        \$table_indexed  = 'indexed_table';
+        \$relations      = [
+            [
+                'foreign_key' => 'foreign_key',
+                'relation_table' => 'relation_table',
+                'primary_key' => 'primary_key'
+            ],
+        ];
+
+        foreach (\$relations as \$key => \$value) {
+            \$this->dhonmigrate->table = \$table_indexed;
+            \$this->dhonmigrate->relate(\$key + 1, \$value['foreign_key'], \$value['relation_table'], \$value['primary_key']);
+        }
 
         if (\$this->dev == false) \$this->_dev('relate');
     }
