@@ -233,8 +233,32 @@ class DhonMigrate
     public function insert(array $value)
     {
         $fields = $this->db->list_fields($this->table);
-        $values = in_array('created_at', $fields) ? array_merge($value, ['created_at' => time()]) : $value;
+        if (in_array('created_at', $fields)) {
+            if ($this->db->field_data($this->table)[array_search('created_at', $fields)]->type == 'INT') {
+                $values = array_merge($value, ['created_at' => time()]);
+            } else {
+                $values = array_merge($value, ['created_at' => date('Y-m-d H:i:s', time())]);
+            }
+        } else {
+            $values = $value;
+        }
+
         $this->db->insert($this->table, $values);
+    }
+
+    public function test()
+    {
+        $fields     = $this->db->list_fields($this->table);
+        if (in_array('created_at', $fields)) {
+            if ($this->db->field_data($this->table)[array_search('created_at', $fields)]->type == 'INT') {
+                $values = time();
+            } else {
+                $values = date('Y-m-d H:i:s', time());
+            }
+        } else {
+            $values = 0;
+        }
+        print_r($values);
     }
 
     /**
@@ -314,8 +338,8 @@ class Migration_" . ucfirst($migration_name) . "
         \$this->dhonmigrate->ai()->field('id_user', 'INT');
         \$this->dhonmigrate->constraint('100')->unique()->field('username', 'VARCHAR');
         \$this->dhonmigrate->constraint('200')->field('password', 'VARCHAR');
-        \$this->dhonmigrate->field('created_at', 'INT');
-        \$this->dhonmigrate->field('updated_at', 'INT');
+        \$this->dhonmigrate->field('created_at', 'DATETIME');
+        \$this->dhonmigrate->field('updated_at', 'DATETIME');
         \$this->dhonmigrate->add_key('id_user');
         \$this->dhonmigrate->create_table();
 
