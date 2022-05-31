@@ -101,6 +101,7 @@ class DhonJson
 
                         if ($this->command == 'delete') $this->delete();
                         else if ($this->command == 'password_verify') $this->password_verify();
+                        else if ($this->command == 'insert') $this->insert();
                         else if ($this->command == '') {
                             if ($_GET) $this->get_where();
                             else if ($_POST) $this->post();
@@ -127,7 +128,7 @@ class DhonJson
                 }
             } else {
                 $status     = 404;
-                $message    = '';
+                $message    = 'Database name not found';
             }
         } else {
             $status     = 500;
@@ -211,23 +212,34 @@ class DhonJson
 
     private function post()
     {
-        foreach ($_POST as $key => $value) {
+        $input = $_POST ? $_POST : $_GET;
+        foreach ($input as $key => $value) {
             $value = strpos($value, 'dansimbol') !== false ?
                 str_replace('dansimbol', '&', $value)
                 : ($key == 'password' || $key == 'password_hash' ? password_hash($value, PASSWORD_DEFAULT) : $value);
 
             if (in_array($key, $this->fields)) $posts[$key] = $value;
         }
-        !isset($_POST[$this->fields[0]]) && in_array('stamp', $this->fields) ?
+        $fields = $this->db->list_fields($this->table);
+        !isset($input[$this->fields[0]]) && in_array('stamp', $this->fields) ?
             $posts['stamp'] = time() : false;
-        !isset($_POST[$this->fields[0]]) && in_array('created_at', $this->fields) && !isset($_POST['created_at']) ? $posts['created_at'] = time()
-            : (in_array('modified_at', $this->fields) ? $posts['modified_at'] = time()
-                : (in_array('updated_at', $this->fields) ? $posts['updated_at'] = time()
+        !isset($input[$this->fields[0]]) && in_array('created_at', $this->fields) && !isset($input['created_at'])
+            ? ($this->db->field_data($this->table)[array_search('created_at', $fields)]->type == 'INT'
+                ? $posts['created_at'] = time()
+                : $posts['created_at'] = date('Y-m-d H:i:s', time()))
+            : (in_array('modified_at', $this->fields)
+                ? ($this->db->field_data($this->table)[array_search('modified_at', $fields)]->type == 'INT'
+                    ? $posts['modified_at'] = time()
+                    : $posts['modified_at'] = date('Y-m-d H:i:s', time()))
+                : (in_array('updated_at', $this->fields)
+                    ? ($this->db->field_data($this->table)[array_search('updated_at', $fields)]->type == 'INT'
+                        ? $posts['updated_at'] = time()
+                        : $posts['updated_at'] = date('Y-m-d H:i:s', time()))
                     : false
                 )
             );
 
-        if (isset($_POST[$this->fields[0]])) {
+        if (isset($input[$this->fields[0]])) {
             $id = $posts[$this->fields[0]];
             $this->db->update($this->table, $posts, [$this->fields[0] => $id]);
         } else {
@@ -281,6 +293,15 @@ class DhonJson
             } else {
                 $this->json_response['status']  = 405;
             }
+        } else {
+            $this->json_response['status']  = 500;
+        }
+    }
+
+    private function insert()
+    {
+        if ($_GET) {
+            $this->post();
         } else {
             $this->json_response['status']  = 500;
         }

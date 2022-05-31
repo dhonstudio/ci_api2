@@ -14,8 +14,8 @@ class Api extends CI_Controller
         |  Set up API Auth, and API User Database
         | -------------------------
         */
-        $this->api_auth = 'basic';
-        $this->api_db   = 'project';
+        $this->api_auth = ''; // '' | 'basic'
+        $this->api_db   = 'project'; // api_db filled by api_users for auth
 
         require_once APPPATH . 'libraries/DhonJson.php';
         $this->dhonjson = new DhonJson;
