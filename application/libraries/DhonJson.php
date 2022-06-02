@@ -8,6 +8,7 @@ class DhonJson
     public $id;
     protected $db;
     protected $db_total;
+    protected $db_hit;
     protected $fields;
     protected $json_response;
     protected $data;
@@ -30,7 +31,8 @@ class DhonJson
         // $this->command  = $this->uri->segment(3); //v1
         // $this->id       = $this->uri->segment(4); //v1
 
-        $this->load = $this->dhonjson->load;
+        $this->load         = $this->dhonjson->load;
+        $this->input        = $this->dhonjson->input;
     }
 
     /**
@@ -83,6 +85,7 @@ class DhonJson
      */
     private function _unauthorized()
     {
+        $this->user['id_user'] = 1;
         $status     = 401;
         $this->send(['status' => $status]);
     }
@@ -94,7 +97,11 @@ class DhonJson
      */
     public function collect()
     {
-        $this->basic_auth ? $this->basic_auth($this->api_db) : false;
+        if ($this->basic_auth) $this->basic_auth($this->api_db);
+        else $this->user = [
+            'level'     => 4,
+            'id_user'   => 1,
+        ];
 
         if ($this->db_name) {
             include APPPATH . "config/production/database.php";
@@ -110,13 +117,17 @@ class DhonJson
                         $status = 200;
                         $this->json_response = ['status' => $status];
 
-                        if ($this->user['level'] < 1) $this->json_response['status'] = 405;
-                        else {
+                        if ($this->user['level'] < 1) {
+                            $this->json_response['status']  = 405;
+                            $this->json_response['message'] = 'Authorization issue';
+                        } else {
                             if ($this->method == 'DELETE' || $_SERVER['REQUEST_METHOD'] === 'DELETE') {
                                 if ($_SERVER['REQUEST_METHOD'] === 'POST') $this->json_response['status'] = 405;
                                 else {
-                                    if ($this->user['level'] < 4) $this->json_response['status'] = 405;
-                                    else $this->delete();
+                                    if ($this->user['level'] < 4) {
+                                        $this->json_response['status'] = 405;
+                                        $this->json_response['message'] = 'No authorization to DELETE';
+                                    } else $this->delete();
                                 }
                             } else if ($this->command == 'password_verify') {
                                 if ($_SERVER['REQUEST_METHOD'] === 'POST') $this->json_response['status']  = 405;
@@ -127,8 +138,10 @@ class DhonJson
                                     if ($_SERVER['REQUEST_METHOD'] === 'POST') $this->json_response['status']  = 405;
                                     else $this->get_where();
                                 } else if ($this->method == 'POST' || $this->method == 'PUT') {
-                                    if ($_SERVER['REQUEST_METHOD'] === 'GET' || $this->user['level'] < 2) $this->json_response['status']  = 405;
-                                    else $this->post();
+                                    if ($_SERVER['REQUEST_METHOD'] === 'GET' || $this->user['level'] < 2) {
+                                        $this->json_response['status']  = 405;
+                                        $this->json_response['message'] = 'No authorization to POST';
+                                    } else $this->post();
                                 } else {
                                     if ($_SERVER['REQUEST_METHOD'] === 'POST') $this->json_response['status']  = 405;
                                     else $this->get();
@@ -165,10 +178,12 @@ class DhonJson
 
     private function get()
     {
-        if (($this->sort || $this->filter || $this->limit) && $_GET) {
+        if (($this->sort && isset($_GET['sort_by'])) || ($this->filter && isset($_GET['keyword'])) || ($this->limit && isset($_GET['limit']))) {
             $this->get_where();
-        } else if ($_GET) $this->json_response['status']  = 405;
-        else {
+        } else if ($_GET) {
+            $this->json_response['status']  = 405;
+            $this->json_response['message'] = 'Parameters not acceptable';
+        } else {
             $this->db   = $this->db->get($this->table);
             $data       = $this->db->result_array();
             $this->json_response['total']   = $this->db->num_rows();
@@ -195,8 +210,8 @@ class DhonJson
                 $sort_by        = $_GET['sort_by'];
                 $sort_method    = isset($_GET['sort_method']) ? $_GET['sort_method'] : 'asc';
 
-                $this->db         = $this->db->order_by($sort_by, $sort_method);
-                $this->db_total    = $this->db_total->order_by($sort_by, $sort_method);
+                $this->db           = $this->db->order_by($sort_by, $sort_method);
+                $this->db_total     = $this->db_total->order_by($sort_by, $sort_method);
             }
         }
 
@@ -251,56 +266,62 @@ class DhonJson
     private function post()
     {
         $input = $_POST ? $_POST : $_GET;
-        foreach ($input as $key => $value) {
-            $value = strpos($value, 'dansimbol') !== false ?
-                str_replace('dansimbol', '&', $value)
-                : ($key == 'password' || $key == 'password_hash' ? password_hash($value, PASSWORD_DEFAULT) : $value);
+        if (count($_POST) == 0) {
+            $this->json_response['status']  = 405;
+            $this->json_response['message'] = 'Body can\'t empty';
+        } else {
+            foreach ($input as $key => $value) {
+                $value = strpos($value, 'dansimbol') !== false ?
+                    str_replace('dansimbol', '&', $value)
+                    : ($key == 'password' || $key == 'password_hash' ? password_hash($value, PASSWORD_DEFAULT) : $value);
 
-            if (in_array($key, $this->fields)) $posts[$key] = $value;
-        }
-        $fields = $this->db->list_fields($this->table);
-        // !isset($input[$this->fields[0]]) && in_array('stamp', $this->fields) ?
-        $this->method != 'PUT' && in_array('stamp', $this->fields) ?
-            $posts['stamp'] = time() : false;
-        // !isset($input[$this->fields[0]]) && in_array('created_at', $this->fields) && !isset($input['created_at'])
-        $this->method != 'PUT' && in_array('created_at', $this->fields) && !isset($input['created_at'])
-            ? ($this->db->field_data($this->table)[array_search('created_at', $fields)]->type == 'INT'
-                ? $posts['created_at'] = time()
-                : $posts['created_at'] = date('Y-m-d H:i:s', time()))
-            : (in_array('modified_at', $this->fields)
-                ? ($this->db->field_data($this->table)[array_search('modified_at', $fields)]->type == 'INT'
-                    ? $posts['modified_at'] = time()
-                    : $posts['modified_at'] = date('Y-m-d H:i:s', time()))
-                : (in_array('updated_at', $this->fields)
-                    ? ($this->db->field_data($this->table)[array_search('updated_at', $fields)]->type == 'INT'
-                        ? $posts['updated_at'] = time()
-                        : $posts['updated_at'] = date('Y-m-d H:i:s', time()))
-                    : false
-                )
-            );
-
-        // if (isset($input[$this->fields[0]])) {
-        if ($this->method == 'PUT') {
-            // $id = $posts[$this->fields[0]];
-            $id = $this->id;
-            if ($this->db->get_where($this->table, [$this->fields[0] => $id])->row_array()) {
-                $this->user['level'] < 3
-                    ? $this->json_response['status']  = 405
-                    : $this->db->update($this->table, $posts, [$this->fields[0] => $id]);
-            } else {
-                $this->json_response['status']  = 404;
+                if (in_array($key, $this->fields)) $posts[$key] = $value;
             }
-        } else {
-            $id = $this->db->insert($this->table, $posts) ? $this->db->insert_id() : 0;
-        }
+            $fields = $this->db->list_fields($this->table);
+            // !isset($input[$this->fields[0]]) && in_array('stamp', $this->fields) ?
+            $this->method != 'PUT' && in_array('stamp', $this->fields) ?
+                $posts['stamp'] = time() : false;
+            // !isset($input[$this->fields[0]]) && in_array('created_at', $this->fields) && !isset($input['created_at'])
+            $this->method != 'PUT' && in_array('created_at', $this->fields) && !isset($input['created_at'])
+                ? ($this->db->field_data($this->table)[array_search('created_at', $fields)]->type == 'INT'
+                    ? $posts['created_at'] = time()
+                    : $posts['created_at'] = date('Y-m-d H:i:s', time()))
+                : (in_array('modified_at', $this->fields)
+                    ? ($this->db->field_data($this->table)[array_search('modified_at', $fields)]->type == 'INT'
+                        ? $posts['modified_at'] = time()
+                        : $posts['modified_at'] = date('Y-m-d H:i:s', time()))
+                    : (in_array('updated_at', $this->fields)
+                        ? ($this->db->field_data($this->table)[array_search('updated_at', $fields)]->type == 'INT'
+                            ? $posts['updated_at'] = time()
+                            : $posts['updated_at'] = date('Y-m-d H:i:s', time()))
+                        : false
+                    )
+                );
 
-        if ($id != 0) {
-            if ($this->json_response['status'] == 200)
-                $this->json_response['data'] = $this->db->get_where($this->table, [$this->fields[0] => $id])->row_array();
-        } else {
-            $this->json_response['status']  = 406;
-            $this->json_response['data']    = [false];
-            $this->json_response['message'] = 'Duplicate detected';
+            // if (isset($input[$this->fields[0]])) {
+            if ($this->method == 'PUT') {
+                // $id = $posts[$this->fields[0]];
+                $id = $this->id;
+                if ($this->db->get_where($this->table, [$this->fields[0] => $id])->row_array()) {
+                    if ($this->user['level'] < 3) {
+                        $this->json_response['status']  = 405;
+                        $this->json_response['message'] = 'No authorization to PUT';
+                    } else $this->db->update($this->table, $posts, [$this->fields[0] => $id]);
+                } else {
+                    $this->json_response['status']  = 404;
+                }
+            } else {
+                $id = $this->db->insert($this->table, $posts) ? $this->db->insert_id() : 0;
+            }
+
+            if ($id != 0) {
+                if ($this->json_response['status'] == 200)
+                    $this->json_response['data'] = $this->db->get_where($this->table, [$this->fields[0] => $id])->row_array();
+            } else {
+                $this->json_response['status']  = 406;
+                $this->json_response['data']    = [false];
+                $this->json_response['message'] = 'Duplicate detected';
+            }
         }
     }
 
@@ -371,6 +392,7 @@ class DhonJson
         $paging     = isset($params['paging']) ? $params['paging'] : '';
         $page       = isset($params['page']) ? $params['page'] : '';
         $data       = isset($params['data']) ? $params['data'] : '';
+        $no_hit     = isset($params['no_hit']) ? $params['no_hit'] : false;
 
         header('Content-Type: application/json');
         header('Access-Control-Allow-Origin: *');
@@ -394,16 +416,144 @@ class DhonJson
 
         header("HTTP/1.1 {$status} {$response}");
 
-        $json_response = ['response' => $response, 'status' => $status];
-        if ($message != '') $json_response['message'] = $message;
-        if ($total != -1) $json_response['total'] = $total;
-        if ($result != '') $json_response['result'] = $result;
-        if ($paging != '') $json_response['paging'] = $paging;
-        if ($page != '') $json_response['page'] = $page;
-        if ($data === [false]) $json_response['data'] = false;
-        else if ($data != '') $json_response['data'] = $data;
+        $this->json_response = ['response' => $response, 'status' => $status];
+        if ($message != '') $this->json_response['message'] = $message;
+        if ($total != -1) $this->json_response['total'] = $total;
+        if ($result != '') $this->json_response['result'] = $result;
+        if ($paging != '') $this->json_response['paging'] = $paging;
+        if ($page != '') $this->json_response['page'] = $page;
+        if ($data === [false]) $this->json_response['data'] = false;
+        else if ($data != '') $this->json_response['data'] = $data;
 
-        echo json_encode($json_response, JSON_NUMERIC_CHECK);
+        if (!$no_hit) $this->_hit();
+        echo json_encode($this->json_response, JSON_NUMERIC_CHECK);
         exit;
+    }
+
+    private function _curl(string $url)
+    {
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_URL, $url);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, TRUE);
+        return curl_exec($curl);
+        curl_close($curl);
+    }
+
+    private function _hit()
+    {
+        $session_name = 'DShC13v';
+
+        $this->db_hit = $this->load->database($this->api_db, TRUE);
+
+        //~ api_address
+        $ip_address_pre =
+            !empty($_SERVER["HTTP_X_CLUSTER_CLIENT_IP"]) ? $_SERVER["HTTP_X_CLUSTER_CLIENT_IP"] : (!empty($_SERVER["HTTP_X_CLIENT_IP"]) ? $_SERVER["HTTP_X_CLIENT_IP"] : (!empty($_SERVER["HTTP_CLIENT_IP"]) ? $_SERVER["HTTP_CLIENT_IP"] : (!empty($_SERVER["HTTP_X_FORWARDED_FOR"]) ? $_SERVER["HTTP_X_FORWARDED_FOR"] : (!empty($_SERVER["HTTP_X_FORWARDED"]) ? $_SERVER["HTTP_X_FORWARDED"] : (!empty($_SERVER["HTTP_FORWARDED_FOR"]) ? $_SERVER["HTTP_FORWARDED_FOR"] : (!empty($_SERVER["HTTP_FORWARDED"]) ? $_SERVER["HTTP_FORWARDED"] :
+                $_SERVER["REMOTE_ADDR"]
+            ))))));
+        foreach (explode(',', $ip_address_pre) as $ip) {
+            $ip = trim($ip); // just to be safe
+
+            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false) {
+                $ip_address = $ip;
+            } else {
+                $ip_address = $ip;
+            }
+        }
+
+        $address_av = $this->db_hit->get_where('api_address', ['ip_address' => $ip_address])->result_array();
+        if (empty($address_av)) {
+            $this->db_hit->insert('api_address', [
+                'ip_address'    => $ip_address,
+                'ip_info'       => $this->_curl("http://ip-api.com/json/{$ip_address}")
+            ]);
+            $id_address = $this->db_hit->insert_id();
+        } else {
+            $id_address = $address_av[0]['id_address'];
+        }
+
+        //~ api_entity
+        $entity = htmlentities($_SERVER['HTTP_USER_AGENT']);
+
+        $entities       = $this->db_hit->get('api_entity')->result_array();
+        $entity_key     = array_search($entity, array_column($entities, 'entity'));
+        $entity_av      = !empty($entities) ? ($entity_key > -1 ? $entities[$entity_key] : 0) : 0;
+        if ($entity_av === 0) {
+            $this->db_hit->insert('api_entity', [
+                'entity' => $entity,
+            ]);
+            $id_entity = $this->db_hit->insert_id();
+        } else {
+            $id_entity = $entity_av['id'];
+        }
+
+        //~ api_session
+        $this->load->helper('cookie');
+        $this->load->helper('string');
+
+        $session_value  = random_string('alnum', 32);
+        $session_cookie = array(
+            'name'   => $session_name,
+            'value'  => $session_value,
+            'expire' => 2 * 60 * 60,
+        );
+        if (!$this->input->cookie($session_name) || ($this->input->cookie($session_name) === '' || $this->input->cookie($session_name) === null)) {
+            set_cookie($session_cookie);
+        } else {
+            $session_value = $this->input->cookie($session_name);
+        }
+
+        $session_av = $this->db_hit->get_where('api_session', ['session' => $session_value])->result_array();
+        if (empty($session_av)) {
+            $this->db_hit->insert('api_session', [
+                'session' => $session_value,
+            ]);
+            $id_session = $this->db_hit->insert_id();
+        } else {
+            $id_session = $session_av[0]['id_session'];
+        }
+
+        //~ api_endpoint
+        if ($_GET) {
+            $get_join = [];
+            foreach ($_GET as $key => $value) {
+                array_push($get_join, $key . '=' . $value);
+            }
+            $get = '?' . implode('&', $get_join);
+        } else {
+            $get = '';
+        }
+        $endpoint = $this->uri->uri_string() . $get;
+        $endpoint_av = $this->db_hit->get_where('api_endpoint', ['endpoint' => $endpoint])->result_array();
+        if (empty($endpoint_av)) {
+            $this->db_hit->insert('api_endpoint', [
+                'endpoint' => $endpoint,
+            ]);
+            $id_endpoint = $this->db_hit->insert_id();
+        } else {
+            $id_endpoint = $endpoint_av[0]['id_endpoint'];
+        }
+
+        $action = $this->method == 'GET' ? 2
+            : ($this->method == 'POST' ? 3
+                : ($this->method == 'PUT' ? 4
+                    : ($this->method == 'DELETE' ? 5
+                        : ($this->command == 'password_verify' ? 6 : 1))));
+
+        $success    = $this->json_response['status'] == 200 ? 1 : 0;
+        $error      = $this->json_response['status'] == 200 ? 0 : $this->json_response['status'];
+        $message    = isset($this->json_response['message']) ? $this->json_response['message'] : '';
+
+        $this->db_hit->insert('api_log', [
+            'id_user'       => $this->user['id_user'],
+            'address'       => $id_address,
+            'entity'        => $id_entity,
+            'session'       => $id_session,
+            'endpoint'      => $id_endpoint,
+            'action'        => $action,
+            'success'       => $success,
+            'error'         => $error,
+            'message'       => $message,
+            'created_at'    => date('Y-m-d H:i:s', time())
+        ]);
     }
 }

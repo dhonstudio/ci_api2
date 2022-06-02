@@ -26,7 +26,7 @@ class DhonMigrate
         if (!in_array($this->database, array_keys($db))) {
             $status     = 404;
             $message    = 'Database name not found';
-            $this->dhonjson->send(['status' => $status, 'message' => $message]);
+            $this->dhonjson->send(['no_hit' => true, 'status' => $status, 'message' => $message]);
         }
 
         $this->load = $this->dhonmigrate->load;
@@ -40,7 +40,7 @@ class DhonMigrate
                 $status     = 404;
                 $message    = 'Database not found';
             }
-            $this->dhonjson->send(['status' => $status, 'message' => $message]);
+            $this->dhonjson->send(['no_hit' => true, 'status' => $status, 'message' => $message]);
         }
 
         $this->db       = $this->load->database($this->database, TRUE);
@@ -201,7 +201,7 @@ class DhonMigrate
                 $status     = 406;
                 $message    = "Table `{$this->table}` exist";
 
-                $this->dhonjson->send(['status' => $status, 'message' => $message]);
+                $this->dhonjson->send(['no_hit' => true, 'status' => $status, 'message' => $message]);
             }
         }
         $this->dbforge->add_field($this->fields);
@@ -276,7 +276,7 @@ class DhonMigrate
         if (!file_exists($migration_file)) {
             $status     = 404;
             $message    = 'Migration file not found';
-            $this->dhonjson->send(['status' => $status, 'message' => $message]);
+            $this->dhonjson->send(['no_hit' => true, 'status' => $status, 'message' => $message]);
         }
 
         require $migration_file;
@@ -297,7 +297,7 @@ class DhonMigrate
 
         $status     = 200;
         $message    = 'Migration success';
-        $this->dhonjson->send(['status' => $status, 'message' => $message]);
+        $this->dhonjson->send(['no_hit' => true, 'status' => $status, 'message' => $message]);
     }
 
     /**
@@ -352,6 +352,51 @@ class Migration_" . ucfirst($migration_name) . "
         \$this->dhonmigrate->insert(['username' => 'only_getpost', 'password' => password_hash('admin', PASSWORD_DEFAULT), 'level' => 2]);
         \$this->dhonmigrate->insert(['username' => 'only_getpostput', 'password' => password_hash('admin', PASSWORD_DEFAULT), 'level' => 3]);
 
+        \$this->dhonmigrate->table = 'api_log';
+        \$this->dhonmigrate->ai()->field('id_log', 'INT');
+        \$this->dhonmigrate->field('id_user', 'INT');
+        \$this->dhonmigrate->field('address', 'INT');
+        \$this->dhonmigrate->field('entity', 'INT');
+        \$this->dhonmigrate->field('session', 'INT');
+        \$this->dhonmigrate->field('endpoint', 'INT');
+        \$this->dhonmigrate->field('action', 'INT');
+        \$this->dhonmigrate->field('success', 'INT');
+        \$this->dhonmigrate->field('error', 'INT');
+        \$this->dhonmigrate->constraint('200')->field('message', 'VARCHAR');
+        \$this->dhonmigrate->field('created_at', 'DATETIME');
+        \$this->dhonmigrate->add_key('id_log');
+        \$this->dhonmigrate->add_index('id_user');
+        \$this->dhonmigrate->add_index('address');
+        \$this->dhonmigrate->add_index('entity');
+        \$this->dhonmigrate->add_index('session');
+        \$this->dhonmigrate->add_index('endpoint');
+        \$this->dhonmigrate->create_table('force');
+
+        \$this->dhonmigrate->table = 'api_address';
+        \$this->dhonmigrate->ai()->field('id_address', 'INT');
+        \$this->dhonmigrate->constraint('50')->unique()->field('ip_address', 'VARCHAR', 'nullable');
+        \$this->dhonmigrate->constraint('1500')->field('ip_info', 'VARCHAR', 'nullable');
+        \$this->dhonmigrate->add_key('id_address');
+        \$this->dhonmigrate->create_table('force');
+
+        \$this->dhonmigrate->table = 'api_entity';
+        \$this->dhonmigrate->ai()->field('id', 'INT');
+        \$this->dhonmigrate->constraint('1000')->unique()->field('entity', 'VARCHAR', 'nullable');
+        \$this->dhonmigrate->add_key('id');
+        \$this->dhonmigrate->create_table('force');
+
+        \$this->dhonmigrate->table = 'api_session';
+        \$this->dhonmigrate->ai()->field('id_session', 'INT');
+        \$this->dhonmigrate->constraint('100')->unique()->field('session', 'VARCHAR', 'nullable');
+        \$this->dhonmigrate->add_key('id_session');
+        \$this->dhonmigrate->create_table('force');
+
+        \$this->dhonmigrate->table = 'api_endpoint';
+        \$this->dhonmigrate->ai()->field('id_endpoint', 'INT');
+        \$this->dhonmigrate->constraint('500')->unique()->field('endpoint', 'VARCHAR', 'nullable');
+        \$this->dhonmigrate->add_key('id_endpoint');
+        \$this->dhonmigrate->create_table('force');
+
         if (\$this->dev == false) \$this->_dev('up');
     }
 
@@ -383,12 +428,32 @@ class Migration_" . ucfirst($migration_name) . "
 
     public function relate()
     {
-        \$table_indexed  = 'indexed_table';
+        \$table_indexed  = 'api_log';
         \$relations      = [
             [
-                'foreign_key' => 'foreign_key',
-                'relation_table' => 'relation_table',
-                'primary_key' => 'primary_key'
+                'foreign_key' => 'id_user',
+                'relation_table' => 'api_users',
+                'primary_key' => 'id_user'
+            ],
+            [
+                'foreign_key' => 'address',
+                'relation_table' => 'api_address',
+                'primary_key' => 'id_address'
+            ],
+            [
+                'foreign_key' => 'entity',
+                'relation_table' => 'api_entity',
+                'primary_key' => 'id'
+            ],
+            [
+                'foreign_key' => 'session',
+                'relation_table' => 'api_session',
+                'primary_key' => 'id_session'
+            ],
+            [
+                'foreign_key' => 'endpoint',
+                'relation_table' => 'api_endpoint',
+                'primary_key' => 'id_endpoint'
             ],
         ];
 
@@ -405,6 +470,6 @@ class Migration_" . ucfirst($migration_name) . "
 
         $status     = 200;
         $message    = 'Migration file successfully created';
-        $this->dhonjson->send(['status' => $status, 'message' => $message]);
+        $this->dhonjson->send(['no_hit' => true, 'status' => $status, 'message' => $message]);
     }
 }
