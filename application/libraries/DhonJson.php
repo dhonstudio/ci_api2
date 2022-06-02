@@ -17,6 +17,7 @@ class DhonJson
     public $sort;
     public $filter;
     public $limit;
+    protected $user;
 
     public function __construct()
     {
@@ -38,7 +39,7 @@ class DhonJson
      * @param	string	$api_db_name
      * @return	void
      */
-    public function basic_auth(string $api_db_name)
+    private function basic_auth(string $api_db_name)
     {
         include APPPATH . "config/production/database.php";
 
@@ -56,6 +57,8 @@ class DhonJson
                         $user = $api_db->get_where('api_users', ['username' => $_SERVER['PHP_AUTH_USER']])->row_array();
                         if (!$user || !password_verify($_SERVER['PHP_AUTH_PW'], $user['password'])) {
                             $this->_unauthorized();
+                        } else {
+                            $this->user = $user;
                         }
                     } else {
                         $this->_unauthorized();
@@ -107,26 +110,30 @@ class DhonJson
                         $status = 200;
                         $this->json_response = ['status' => $status];
 
-                        if ($this->method == 'DELETE' || $_SERVER['REQUEST_METHOD'] === 'DELETE') {
-                            if ($_SERVER['REQUEST_METHOD'] === 'POST') $this->json_response['status']  = 405;
-                            else $this->delete();
-                        } else if ($this->command == 'password_verify') {
-                            if ($_SERVER['REQUEST_METHOD'] === 'POST') $this->json_response['status']  = 405;
-                            else $this->password_verify();
-                        } else if ($this->command == 'insert') $this->insert();
-                        else if ($this->command == '') {
-                            if ($this->method == 'GET') {
+                        if ($this->user['level'] < 1) $this->json_response['status'] = 405;
+                        else {
+                            if ($this->method == 'DELETE' || $_SERVER['REQUEST_METHOD'] === 'DELETE') {
+                                if ($_SERVER['REQUEST_METHOD'] === 'POST') $this->json_response['status'] = 405;
+                                else {
+                                    if ($this->user['level'] < 4) $this->json_response['status'] = 405;
+                                    else $this->delete();
+                                }
+                            } else if ($this->command == 'password_verify') {
                                 if ($_SERVER['REQUEST_METHOD'] === 'POST') $this->json_response['status']  = 405;
-                                else $this->get_where();
-                            } else if ($this->method == 'POST' || $this->method == 'PUT') {
-                                if ($_SERVER['REQUEST_METHOD'] === 'GET') $this->json_response['status']  = 405;
-                                else $this->post();
-                            } else {
-                                if ($_SERVER['REQUEST_METHOD'] === 'POST') $this->json_response['status']  = 405;
-                                else $this->get();
-                            }
-                        } else {
-                            $this->json_response['status']  = 405;
+                                else $this->password_verify();
+                            } else if ($this->command == 'insert') $this->insert();
+                            else if ($this->command == '') {
+                                if ($this->method == 'GET') {
+                                    if ($_SERVER['REQUEST_METHOD'] === 'POST') $this->json_response['status']  = 405;
+                                    else $this->get_where();
+                                } else if ($this->method == 'POST' || $this->method == 'PUT') {
+                                    if ($_SERVER['REQUEST_METHOD'] === 'GET' || $this->user['level'] < 2) $this->json_response['status']  = 405;
+                                    else $this->post();
+                                } else {
+                                    if ($_SERVER['REQUEST_METHOD'] === 'POST') $this->json_response['status']  = 405;
+                                    else $this->get();
+                                }
+                            } else $this->json_response['status']  = 405;
                         }
 
                         $message = isset($this->json_response['message']) ? $this->json_response['message'] : '';
@@ -277,7 +284,9 @@ class DhonJson
             // $id = $posts[$this->fields[0]];
             $id = $this->id;
             if ($this->db->get_where($this->table, [$this->fields[0] => $id])->row_array()) {
-                $this->db->update($this->table, $posts, [$this->fields[0] => $id]);
+                $this->user['level'] < 3
+                    ? $this->json_response['status']  = 405
+                    : $this->db->update($this->table, $posts, [$this->fields[0] => $id]);
             } else {
                 $this->json_response['status']  = 404;
             }
@@ -286,7 +295,8 @@ class DhonJson
         }
 
         if ($id != 0) {
-            $this->json_response['data']    = $this->db->get_where($this->table, [$this->fields[0] => $id])->row_array();
+            if ($this->json_response['status'] == 200)
+                $this->json_response['data'] = $this->db->get_where($this->table, [$this->fields[0] => $id])->row_array();
         } else {
             $this->json_response['status']  = 406;
             $this->json_response['data']    = [false];

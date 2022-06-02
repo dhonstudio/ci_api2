@@ -340,12 +340,17 @@ class Migration_" . ucfirst($migration_name) . "
         \$this->dhonmigrate->ai()->field('id_user', 'INT');
         \$this->dhonmigrate->constraint('100')->unique()->field('username', 'VARCHAR');
         \$this->dhonmigrate->constraint('200')->field('password', 'VARCHAR');
+        \$this->dhonmigrate->default(0)->field('level', 'INT');
         \$this->dhonmigrate->field('created_at', 'DATETIME');
         \$this->dhonmigrate->field('updated_at', 'DATETIME');
         \$this->dhonmigrate->add_key('id_user');
         \$this->dhonmigrate->create_table();
 
-        \$this->dhonmigrate->insert(['username' => 'admin', 'password' => password_hash('admin', PASSWORD_DEFAULT)]);
+        \$this->dhonmigrate->insert(['username' => 'admin', 'password' => password_hash('admin', PASSWORD_DEFAULT), 'level' => 4]);
+        \$this->dhonmigrate->insert(['username' => 'no_access', 'password' => password_hash('admin', PASSWORD_DEFAULT), 'level' => 0]);
+        \$this->dhonmigrate->insert(['username' => 'only_get', 'password' => password_hash('admin', PASSWORD_DEFAULT), 'level' => 1]);
+        \$this->dhonmigrate->insert(['username' => 'only_getpost', 'password' => password_hash('admin', PASSWORD_DEFAULT), 'level' => 2]);
+        \$this->dhonmigrate->insert(['username' => 'only_getpostput', 'password' => password_hash('admin', PASSWORD_DEFAULT), 'level' => 3]);
 
         if (\$this->dev == false) \$this->_dev('up');
     }
