@@ -20,7 +20,7 @@ class Migration_Api_users
         $this->dhonmigrate->field('created_at', 'DATETIME');
         $this->dhonmigrate->field('updated_at', 'DATETIME');
         $this->dhonmigrate->add_key('id_user');
-        $this->dhonmigrate->create_table();
+        $this->dhonmigrate->create_table('force');
 
         $this->dhonmigrate->insert(['username' => 'admin', 'password' => password_hash('admin', PASSWORD_DEFAULT)]);
 

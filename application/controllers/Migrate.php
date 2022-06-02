@@ -15,7 +15,7 @@ class Migrate extends CI_Controller
         $database                   = 'project';
         $this->migration_method     = 'one'; // one | all
         $this->migration_file       = 'api_users'; // same with migration file created
-        $this->migration_version    = '20220531060756'; // same with migration file created
+        $this->migration_version    = '20220602110221'; // same with migration file created
         $this->migration_action     = ''; // '' | 'change' | 'drop' | 'relate'
 
         require_once APPPATH . 'libraries/DhonMigrate.php';

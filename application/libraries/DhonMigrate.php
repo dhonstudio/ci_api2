@@ -293,6 +293,8 @@ class DhonMigrate
 
         $action == 'change' ? $migration->change() : ($action == 'drop' ? $migration->drop() : ($action == 'relate' ? $migration->relate() : $migration->up()));
 
+        rename($migration_file, APPPATH . "migrations/" . date('YmdHis_', time()) . "{$classname}.php");
+
         $status     = 200;
         $message    = 'Migration success';
         $this->dhonjson->send(['status' => $status, 'message' => $message]);
