@@ -2,15 +2,21 @@
 
 class DhonJson
 {
-    protected $db_name;
-    protected $table;
-    protected $command;
-    protected $id;
+    public $db_name;
+    public $table;
+    public $command;
+    public $id;
     protected $db;
     protected $db_total;
     protected $fields;
     protected $json_response;
     protected $data;
+    public $basic_auth;
+    public $api_db;
+    public $method;
+    public $sort;
+    public $filter;
+    public $limit;
 
     public function __construct()
     {
@@ -18,10 +24,10 @@ class DhonJson
 
         $this->uri  = $this->dhonjson->uri;
 
-        $this->db_name  = $this->uri->segment(1);
-        $this->table    = $this->uri->segment(2);
-        $this->command  = $this->uri->segment(3);
-        $this->id       = $this->uri->segment(4);
+        // $this->db_name  = $this->uri->segment(1); //v1
+        // $this->table    = $this->uri->segment(2); //v1
+        // $this->command  = $this->uri->segment(3); //v1
+        // $this->id       = $this->uri->segment(4); //v1
 
         $this->load = $this->dhonjson->load;
     }
@@ -85,6 +91,8 @@ class DhonJson
      */
     public function collect()
     {
+        $this->basic_auth ? $this->basic_auth($this->api_db) : false;
+
         if ($this->db_name) {
             include APPPATH . "config/production/database.php";
 
@@ -99,13 +107,24 @@ class DhonJson
                         $status = 200;
                         $this->json_response = ['status' => $status];
 
-                        if ($this->command == 'delete') $this->delete();
-                        else if ($this->command == 'password_verify') $this->password_verify();
-                        else if ($this->command == 'insert') $this->insert();
+                        if ($this->method == 'DELETE' || $_SERVER['REQUEST_METHOD'] === 'DELETE') {
+                            if ($_SERVER['REQUEST_METHOD'] === 'POST') $this->json_response['status']  = 405;
+                            else $this->delete();
+                        } else if ($this->command == 'password_verify') {
+                            if ($_SERVER['REQUEST_METHOD'] === 'POST') $this->json_response['status']  = 405;
+                            else $this->password_verify();
+                        } else if ($this->command == 'insert') $this->insert();
                         else if ($this->command == '') {
-                            if ($_GET) $this->get_where();
-                            else if ($_POST) $this->post();
-                            else $this->get();
+                            if ($this->method == 'GET') {
+                                if ($_SERVER['REQUEST_METHOD'] === 'POST') $this->json_response['status']  = 405;
+                                else $this->get_where();
+                            } else if ($this->method == 'POST' || $this->method == 'PUT') {
+                                if ($_SERVER['REQUEST_METHOD'] === 'GET') $this->json_response['status']  = 405;
+                                else $this->post();
+                            } else {
+                                if ($_SERVER['REQUEST_METHOD'] === 'POST') $this->json_response['status']  = 405;
+                                else $this->get();
+                            }
                         } else {
                             $this->json_response['status']  = 405;
                         }
@@ -139,10 +158,15 @@ class DhonJson
 
     private function get()
     {
-        $this->db   = $this->db->get($this->table);
-        $data       = $this->db->result_array();
-        $this->json_response['total']   = $this->db->num_rows();
-        $this->json_response['data']    = $data;
+        if (($this->sort || $this->filter || $this->limit) && $_GET) {
+            $this->get_where();
+        } else if ($_GET) $this->json_response['status']  = 405;
+        else {
+            $this->db   = $this->db->get($this->table);
+            $data       = $this->db->result_array();
+            $this->json_response['total']   = $this->db->num_rows();
+            $this->json_response['data']    = $data;
+        }
     }
 
     private function get_where()
@@ -159,48 +183,55 @@ class DhonJson
             }
         }
 
-        if (array_key_exists('sort_by', $_GET)) {
-            $sort_by        = $_GET['sort_by'];
-            $sort_method    = isset($_GET['sort_method']) ? $_GET['sort_method'] : 'asc';
+        if ($this->sort) {
+            if (array_key_exists('sort_by', $_GET)) {
+                $sort_by        = $_GET['sort_by'];
+                $sort_method    = isset($_GET['sort_method']) ? $_GET['sort_method'] : 'asc';
 
-            $this->db         = $this->db->order_by($sort_by, $sort_method);
-            $this->db_total    = $this->db_total->order_by($sort_by, $sort_method);
+                $this->db         = $this->db->order_by($sort_by, $sort_method);
+                $this->db_total    = $this->db_total->order_by($sort_by, $sort_method);
+            }
         }
 
-        if (array_key_exists('keyword', $_GET)) {
-            $keyword = $_GET['keyword'];
+        if ($this->filter) {
+            if (array_key_exists('keyword', $_GET)) {
+                $keyword = $_GET['keyword'];
 
-            foreach ($this->fields as $key => $value) {
-                if ($key == 0) {
-                    $this->db       = $this->db->like($value, $keyword);
-                    $this->db_total = $this->db_total->like($value, $keyword);
-                } else {
-                    $this->db       = $this->db->or_like($value, $keyword);
-                    $this->db_total = $this->db_total->or_like($value, $keyword);
+                foreach ($this->fields as $key => $value) {
+                    if ($key == 0) {
+                        $this->db       = $this->db->like($value, $keyword);
+                        $this->db_total = $this->db_total->like($value, $keyword);
+                    } else {
+                        $this->db       = $this->db->or_like($value, $keyword);
+                        $this->db_total = $this->db_total->or_like($value, $keyword);
+                    }
                 }
             }
         }
 
-        if (array_key_exists('limit', $_GET)) {
-            $limit      = $_GET['limit'];
-            $get_offset = isset($_GET['offset']) ? $_GET['offset'] : 0;
-            $offset     = $get_offset * $limit;
+        if ($this->limit) {
+            if (array_key_exists('limit', $_GET)) {
+                $limit      = $_GET['limit'];
+                $get_offset = isset($_GET['offset']) ? $_GET['offset'] : 0;
+                $offset     = $get_offset * $limit;
 
-            $this->db = $this->db->limit($limit, $offset);
-            $this->json_response['paging']  = TRUE;
-            $this->json_response['page']    = $get_offset + 1;
+                $this->db = $this->db->limit($limit, $offset);
+                $this->json_response['paging']  = TRUE;
+                $this->json_response['page']    = $get_offset + 1;
+            }
         }
 
         if (isset($get_where)) {
             $this->json_response['total']   = $this->db_total->get_where($this->table, $get_where)->num_rows();
             $this->json_response['data']    = $this->db->get_where($this->table, $get_where)->result_array();
         } else if (
-            array_key_exists('sort_by', $_GET) ||
-            array_key_exists('keyword', $_GET)
+            (array_key_exists('sort_by', $_GET) ||
+                array_key_exists('keyword', $_GET))
+            && $this->method != 'GET'
         ) {
             $this->json_response['total']   = $this->db_total->get($this->table)->num_rows();
             $this->json_response['data']    = $this->db->get($this->table)->result_array();
-        } else if (array_key_exists('limit', $_GET)) {
+        } else if (array_key_exists('limit', $_GET) && $this->method != 'GET') {
             $total = $this->db_total->get($this->table)->num_rows();
             $this->json_response['total']   = $total;
             $this->json_response['result']  = $total < $limit ? $total : $limit;
@@ -221,9 +252,11 @@ class DhonJson
             if (in_array($key, $this->fields)) $posts[$key] = $value;
         }
         $fields = $this->db->list_fields($this->table);
-        !isset($input[$this->fields[0]]) && in_array('stamp', $this->fields) ?
+        // !isset($input[$this->fields[0]]) && in_array('stamp', $this->fields) ?
+        $this->method != 'PUT' && in_array('stamp', $this->fields) ?
             $posts['stamp'] = time() : false;
-        !isset($input[$this->fields[0]]) && in_array('created_at', $this->fields) && !isset($input['created_at'])
+        // !isset($input[$this->fields[0]]) && in_array('created_at', $this->fields) && !isset($input['created_at'])
+        $this->method != 'PUT' && in_array('created_at', $this->fields) && !isset($input['created_at'])
             ? ($this->db->field_data($this->table)[array_search('created_at', $fields)]->type == 'INT'
                 ? $posts['created_at'] = time()
                 : $posts['created_at'] = date('Y-m-d H:i:s', time()))
@@ -239,9 +272,15 @@ class DhonJson
                 )
             );
 
-        if (isset($input[$this->fields[0]])) {
-            $id = $posts[$this->fields[0]];
-            $this->db->update($this->table, $posts, [$this->fields[0] => $id]);
+        // if (isset($input[$this->fields[0]])) {
+        if ($this->method == 'PUT') {
+            // $id = $posts[$this->fields[0]];
+            $id = $this->id;
+            if ($this->db->get_where($this->table, [$this->fields[0] => $id])->row_array()) {
+                $this->db->update($this->table, $posts, [$this->fields[0] => $id]);
+            } else {
+                $this->json_response['status']  = 404;
+            }
         } else {
             $id = $this->db->insert($this->table, $posts) ? $this->db->insert_id() : 0;
         }
