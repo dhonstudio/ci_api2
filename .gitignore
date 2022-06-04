@@ -1,5 +1,7 @@
 .vscode/sftp.json
 assets/
+system/
+desktop.ini
 
 .DS_Store
 
