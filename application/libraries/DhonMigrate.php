@@ -31,18 +31,6 @@ class DhonMigrate
 
         $this->load = $this->dhonmigrate->load;
 
-        $this->load->dbutil();
-        if (ENVIRONMENT == 'development' && !$this->dhonmigrate->dbutil->database_exists($db[$this->database]['database'])) {
-            if (isset($params['database_dev'])) {
-                $status     = 417;
-                $message    = 'Migration success, but development database migration not success';
-            } else {
-                $status     = 404;
-                $message    = 'Database not found';
-            }
-            $this->dhonjson->send(['no_hit' => true, 'status' => $status, 'message' => $message]);
-        }
-
         $this->db       = $this->load->database($this->database, TRUE);
         $this->dbforge  = $this->load->dbforge($this->db, TRUE);
     }
@@ -246,21 +234,6 @@ class DhonMigrate
         $this->db->insert($this->table, $values);
     }
 
-    public function test()
-    {
-        $fields     = $this->db->list_fields($this->table);
-        if (in_array('created_at', $fields)) {
-            if ($this->db->field_data($this->table)[array_search('created_at', $fields)]->type == 'INT') {
-                $values = time();
-            } else {
-                $values = date('Y-m-d H:i:s', time());
-            }
-        } else {
-            $values = 0;
-        }
-        print_r($values);
-    }
-
     /**
      * Do Migrate
      *
@@ -282,7 +255,8 @@ class DhonMigrate
         require $migration_file;
 
         $migration_name = "Migration_{$classname}";
-        $migration      = new $migration_name(['database' => $this->database]);
+        $env            = ENVIRONMENT == 'production' ? '' : '_dev';
+        $migration      = new $migration_name(['database' => $this->database . $env]);
 
         $this->table = 'migrations';
         $this->constraint(20)->field('version', 'BIGINT');
