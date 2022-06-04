@@ -19,6 +19,7 @@ class DhonJson
     public $filter;
     public $limit;
     protected $user;
+    protected $env;
 
     public function __construct()
     {
@@ -28,6 +29,8 @@ class DhonJson
 
         $this->load         = $this->dhonjson->load;
         $this->input        = $this->dhonjson->input;
+
+        $this->env = ENVIRONMENT == 'production' ? '' : '_dev';
     }
 
     /**
@@ -47,7 +50,7 @@ class DhonJson
                 $message    = "API db not found";
                 $this->send(['status' => $status, 'message' => $message]);
             } else {
-                $api_db = $this->load->database($api_db_name, TRUE);
+                $api_db = $this->load->database($api_db_name . $this->env, TRUE);
 
                 if ($api_db->table_exists('api_users')) {
                     if (isset($_SERVER['PHP_AUTH_USER'])) {
@@ -101,10 +104,9 @@ class DhonJson
         if ($this->db_name) {
             include APPPATH . "config/testing/database.php";
 
-            $db_name = ENVIRONMENT == 'production' ? $this->db_name : $this->db_name . '_dev';
-            if (in_array($db_name, array_keys($db))) {
-                $this->db           = $this->load->database($db_name, TRUE);
-                $this->db_total     = $this->load->database($db_name, TRUE);
+            if (in_array($this->db_name . $this->env, array_keys($db))) {
+                $this->db           = $this->load->database($this->db_name . $this->env, TRUE);
+                $this->db_total     = $this->load->database($this->db_name . $this->env, TRUE);
 
                 if ($this->table) {
                     if ($this->db->table_exists($this->table)) {
@@ -439,7 +441,7 @@ class DhonJson
     {
         $session_name = 'DShC13v';
 
-        $this->db_hit = $this->load->database($this->api_db, TRUE);
+        $this->db_hit = $this->load->database($this->api_db . $this->env, TRUE);
 
         //~ api_address
         $ip_address_pre =
