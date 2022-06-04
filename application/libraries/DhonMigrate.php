@@ -12,6 +12,7 @@ class DhonMigrate
     protected $unique;
     protected $default;
     protected $fields = [];
+    protected $db_path;
 
     public function __construct(array $params)
     {
@@ -21,7 +22,8 @@ class DhonMigrate
         $this->dhonjson = new DhonJson;
 
         $this->database = $params['database'];
-        include APPPATH . "config/production/database.php";
+        $this->db_path  = ENVIRONMENT == 'production' ? 'production' : 'testing';
+        include APPPATH . "config/{$this->db_path}/database.php";
 
         if (!in_array($this->database, array_keys($db))) {
             $status     = 404;
@@ -260,10 +262,10 @@ class DhonMigrate
 
         $this->table = 'migrations';
         $this->constraint(20)->field('version', 'BIGINT');
-        if (!$this->db->table_exists($this->table)) {
+        if (!$this->load->database($this->database . $env, TRUE)->table_exists($this->table)) {
             $this->create_table();
         }
-        $this->db->insert($this->table, ['version' => date('YmdHis', time())]);
+        $this->load->database($this->database . $env, TRUE)->insert($this->table, ['version' => date('YmdHis', time())]);
 
         $action == 'change' ? $migration->change() : ($action == 'drop' ? $migration->drop() : ($action == 'relate' ? $migration->relate() : $migration->up()));
 

@@ -20,6 +20,7 @@ class DhonJson
     public $limit;
     protected $user;
     protected $env;
+    protected $db_path;
 
     public function __construct()
     {
@@ -30,7 +31,8 @@ class DhonJson
         $this->load         = $this->dhonjson->load;
         $this->input        = $this->dhonjson->input;
 
-        $this->env = ENVIRONMENT == 'production' ? '' : '_dev';
+        $this->env          = ENVIRONMENT == 'production' ? '' : '_dev';
+        $this->db_path      = ENVIRONMENT == 'production' ? 'production' : 'testing';
     }
 
     /**
@@ -41,7 +43,7 @@ class DhonJson
      */
     private function basic_auth(string $api_db_name)
     {
-        include APPPATH . "config/production/database.php";
+        include APPPATH . "config/{$this->db_path}/database.php";
 
         if (in_array($api_db_name, array_keys($db))) {
             $this->load->dbutil();
@@ -102,7 +104,7 @@ class DhonJson
         ];
 
         if ($this->db_name) {
-            include APPPATH . "config/testing/database.php";
+            include APPPATH . "config/{$this->db_path}/database.php";
 
             if (in_array($this->db_name . $this->env, array_keys($db))) {
                 $this->db           = $this->load->database($this->db_name . $this->env, TRUE);
