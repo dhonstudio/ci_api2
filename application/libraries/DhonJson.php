@@ -26,11 +26,6 @@ class DhonJson
 
         $this->uri  = $this->dhonjson->uri;
 
-        // $this->db_name  = $this->uri->segment(1); //v1
-        // $this->table    = $this->uri->segment(2); //v1
-        // $this->command  = $this->uri->segment(3); //v1
-        // $this->id       = $this->uri->segment(4); //v1
-
         $this->load         = $this->dhonjson->load;
         $this->input        = $this->dhonjson->input;
     }
@@ -104,11 +99,12 @@ class DhonJson
         ];
 
         if ($this->db_name) {
-            include APPPATH . "config/production/database.php";
+            include APPPATH . "config/testing/database.php";
 
-            if (in_array($this->db_name, array_keys($db))) {
-                $this->db           = $this->load->database($this->db_name, TRUE);
-                $this->db_total     = $this->load->database($this->db_name, TRUE);
+            $db_name = ENVIRONMENT == 'production' ? $this->db_name : $this->db_name . '_dev';
+            if (in_array($db_name, array_keys($db))) {
+                $this->db           = $this->load->database($db_name, TRUE);
+                $this->db_total     = $this->load->database($db_name, TRUE);
 
                 if ($this->table) {
                     if ($this->db->table_exists($this->table)) {

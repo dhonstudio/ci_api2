@@ -82,10 +82,10 @@ $db['project_dev'] = array(
 |
 */
 
-include APPPATH . "config/production/database.php";
+include APPPATH . "config/testing/database.php";
 
 foreach ($db as $name => $set) {
-    $set['username'] = 'root';
-    $set['password'] = '';
-    $db[$name] = $set;
+	$set['username'] = 'root';
+	$set['password'] = '';
+	$db[$name] = $set;
 }
