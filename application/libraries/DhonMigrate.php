@@ -25,7 +25,8 @@ class DhonMigrate
         $this->db_path  = ENVIRONMENT == 'production' ? 'production' : 'testing';
         include APPPATH . "config/{$this->db_path}/database.php";
 
-        if (!in_array($this->database, array_keys($db))) {
+        $env            = ENVIRONMENT == 'production' ? '' : '_dev';
+        if (!in_array($this->database . $env, array_keys($db))) {
             $status     = 404;
             $message    = 'Database name not found';
             $this->dhonjson->send(['no_hit' => true, 'status' => $status, 'message' => $message]);
@@ -33,7 +34,7 @@ class DhonMigrate
 
         $this->load = $this->dhonmigrate->load;
 
-        $this->db       = $this->load->database($this->database, TRUE);
+        $this->db       = $this->load->database($this->database . $env, TRUE);
         $this->dbforge  = $this->load->dbforge($this->db, TRUE);
     }
 
@@ -257,15 +258,14 @@ class DhonMigrate
         require $migration_file;
 
         $migration_name = "Migration_{$classname}";
-        $env            = ENVIRONMENT == 'production' ? '' : '_dev';
-        $migration      = new $migration_name(['database' => $this->database . $env]);
+        $migration      = new $migration_name(['database' => $this->database]);
 
         $this->table = 'migrations';
         $this->constraint(20)->field('version', 'BIGINT');
-        if (!$this->load->database($this->database . $env, TRUE)->table_exists($this->table)) {
+        if (!$this->db->table_exists($this->table)) {
             $this->create_table();
         }
-        $this->load->database($this->database . $env, TRUE)->insert($this->table, ['version' => date('YmdHis', time())]);
+        $this->db->insert($this->table, ['version' => date('YmdHis', time())]);
 
         $action == 'change' ? $migration->change() : ($action == 'drop' ? $migration->drop() : ($action == 'relate' ? $migration->relate() : $migration->up()));
 
@@ -283,7 +283,7 @@ class DhonMigrate
      * @param	string  $dev optional ('dev' | '')
      * @return	void
      */
-    public function create(string $migration_name, string $dev = '')
+    public function create(string $migration_name)
     {
         $this->load->helper('file');
 
@@ -295,8 +295,6 @@ class DhonMigrate
         $file_location  = $folder_location . $timestamp . $migration_name . '.php';
         fopen($file_location, "w");
 
-        $create_dev = $dev == 'dev' ? "false" : "true";
-
         $data = "<?php
 
 class Migration_" . ucfirst($migration_name) . "
@@ -304,7 +302,6 @@ class Migration_" . ucfirst($migration_name) . "
     public function __construct(array \$params)
     {
         \$this->database = \$params['database'];
-        \$this->dev      = $create_dev;
 
         require_once APPPATH . 'libraries/DhonMigrate.php';
         \$this->dhonmigrate = new DhonMigrate(['database' => \$this->database]);
@@ -372,34 +369,16 @@ class Migration_" . ucfirst($migration_name) . "
         \$this->dhonmigrate->constraint('500')->unique()->field('endpoint', 'VARCHAR', 'nullable');
         \$this->dhonmigrate->add_key('id_endpoint');
         \$this->dhonmigrate->create_table('force');
-
-        if (\$this->dev == false) \$this->_dev('up');
-    }
-
-    private function _dev(string \$next)
-    {
-        \$this->dhonmigrate = new DhonMigrate(['database' => \$this->database . '_dev', 'database_dev' => true]);
-        \$this->dev = true;
-        \$next == 'up' ? \$this->up()
-            : (\$next == 'change' ? \$this->change()
-                : (\$next == 'drop' ? \$this->drop()
-                    : \$this->relate()
-                )
-            );
     }
 
     public function change()
     {
         # code...
-
-        if (\$this->dev == false) \$this->_dev('change');
     }
 
     public function drop()
     {
         # code...
-
-        if (\$this->dev == false) \$this->_dev('drop');
     }
 
     public function relate()
@@ -437,8 +416,6 @@ class Migration_" . ucfirst($migration_name) . "
             \$this->dhonmigrate->table = \$table_indexed;
             \$this->dhonmigrate->relate(\$key + 1, \$value['foreign_key'], \$value['relation_table'], \$value['primary_key']);
         }
-
-        if (\$this->dev == false) \$this->_dev('relate');
     }
 }
         ";
