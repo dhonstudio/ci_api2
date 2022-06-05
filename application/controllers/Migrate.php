@@ -29,8 +29,8 @@ class Migrate extends CI_Controller
         $this->migration_method == 'one' ? $this->dhonmigrate->migrate($this->migration_file, $this->migration_action) : false;
     }
 
-    public function create(string $migration_name, string $dev = '')
+    public function create(string $migration_name)
     {
-        $this->dhonmigrate->create($migration_name, $dev);
+        $this->dhonmigrate->create($migration_name);
     }
 }
