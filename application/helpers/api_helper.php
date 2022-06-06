@@ -1,5 +1,4 @@
 <?php
-
 $ci = get_instance();
 
 require_once APPPATH . 'libraries/DhonJson.php';
