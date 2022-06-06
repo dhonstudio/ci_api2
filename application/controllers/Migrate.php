@@ -10,7 +10,7 @@ class Migrate extends CI_Controller
     */
     protected $migration_database   = 'project';
     protected $migration_method     = 'one'; // one | all
-    protected $migration_file       = 'api_users'; // same with migration file created
+    protected $migration_file       = 'api'; // same with migration file created
     protected $migration_version    = '20220602143026'; // same with migration file created
     protected $migration_action     = ''; // '' | 'change' | 'drop' | 'relate'
     protected $dhonmigrate;
