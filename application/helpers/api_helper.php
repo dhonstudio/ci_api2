@@ -13,4 +13,4 @@ $ci->dhonjson = new DhonJson;
 | -------------------------
 */
 $ci->dhonjson->basic_auth   = true; // true | false
-$ci->dhonjson->api_db       = ''; // api_db filled by api_users for auth
+$ci->dhonjson->api_db       = 'project'; // api_db filled by api_users for auth
