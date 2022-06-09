@@ -2,7 +2,7 @@
 $ci = get_instance();
 
 $ci->root_path = ENVIRONMENT == 'development' ? "/../../"
-    : (ENVIRONMENT == 'testing' ? "/../../../../../" : "");
+    : (ENVIRONMENT == 'testing' ? "/../../../../../" : "/../../../../");
 
 require_once __DIR__ . $ci->root_path . 'assets/ci_libraries/DhonJSON.php';
 $ci->dhonjson = new DhonJson;
