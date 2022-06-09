@@ -33,6 +33,7 @@ class Userci extends CI_Controller
     public function insert()
     {
         $this->dhonjson->method = 'POST';
+        $this->dhonjson->error_duplicate = 'Email has been registered';
         $this->dhonjson->collect();
     }
 
