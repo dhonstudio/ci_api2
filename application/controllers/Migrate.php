@@ -5,32 +5,32 @@ class Migrate extends CI_Controller
 {
     /*
     | ------------------------------------------------------------------
-    |  Set up Migration Database, Method, File, and Version
+    |  Set up Migration Database and Action
     | ------------------------------------------------------------------
     */
-    protected $migration_database   = 'project';
-    protected $migration_method     = 'one'; // one | all
-    protected $migration_file       = 'api'; // same with migration file created
-    protected $migration_version    = '20220602143026'; // same with migration file created
-    protected $migration_action     = ''; // '' | 'change' | 'drop' | 'relate'
+    public $migration_database  = ''; // fill with migration database
+    protected $migration_action = 'up'; // 'up' | 'change' | 'drop'
+
+    public $root_path;
     protected $dhonmigrate;
 
     public function __construct()
     {
         parent::__construct();
 
-        require_once APPPATH . 'libraries/DhonMigrate.php';
-        $this->dhonmigrate = new DhonMigrate(['database' => $this->migration_database]);
-        $this->dhonmigrate->version = $this->migration_version;
-    }
-
-    public function index()
-    {
-        $this->migration_method == 'one' ? $this->dhonmigrate->migrate($this->migration_file, $this->migration_action) : false;
+        require_once __DIR__ . $this->root_path . 'assets/ci_libraries/DhonMigrate.php';
+        $this->dhonmigrate = new DhonMigrate();
     }
 
     public function create(string $migration_name)
     {
         $this->dhonmigrate->create($migration_name);
+    }
+
+    public function index()
+    {
+        $migration_file     = 'api';
+        $migration_version  = '20220609231342';
+        $this->dhonmigrate->migrate($migration_version, $migration_file, $this->migration_action);
     }
 }
