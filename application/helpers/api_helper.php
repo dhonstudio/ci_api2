@@ -1,8 +1,10 @@
 <?php
-
 $ci = get_instance();
 
-require_once APPPATH . 'libraries/DhonJson.php';
+$ci->root_path = ENVIRONMENT == 'development' ? "/../../"
+    : "";
+
+require_once __DIR__ . $ci->root_path . 'assets/ci_libraries/DhonJSON.php';
 $ci->dhonjson = new DhonJson;
 
 /*
@@ -11,4 +13,4 @@ $ci->dhonjson = new DhonJson;
 | -------------------------
 */
 $ci->dhonjson->basic_auth   = true; // true | false
-$ci->dhonjson->api_db       = 'project'; // api_db filled by api_users for auth
+$ci->dhonjson->api_db       = ''; // api_db filled by api_users for auth

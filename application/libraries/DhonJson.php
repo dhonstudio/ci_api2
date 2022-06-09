@@ -320,7 +320,7 @@ class DhonJson
             } else {
                 $this->json_response['status']  = 406;
                 $this->json_response['data']    = [false];
-                $this->json_response['message'] = 'Duplicate detected';
+                $this->json_response['message'] = $this->error_duplicate;
             }
         }
     }
