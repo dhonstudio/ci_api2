@@ -10,7 +10,7 @@ class Migration_Api
         require_once __DIR__ . $root_path . 'assets/ci_libraries/DhonMigrate.php';
         $this->dhonmigrate = new DhonMigrate();
     }
-    
+
     public function up()
     {
         $this->dhonmigrate->table = 'api_users';
@@ -73,6 +73,28 @@ class Migration_Api
         $this->dhonmigrate->constraint('500')->unique()->field('endpoint', 'VARCHAR', 'nullable');
         $this->dhonmigrate->add_key('id_endpoint');
         $this->dhonmigrate->create_table('force');
+
+        $this->dhonmigrate->table = 'user_ci';
+        $this->dhonmigrate->ai()->field('id', 'INT');
+        $this->dhonmigrate->constraint('255')->unique()->field('email', 'VARCHAR');
+        $this->dhonmigrate->constraint('200')->field('fullName', 'VARCHAR');
+        $this->dhonmigrate->constraint('32')->field('auth_key', 'VARCHAR');
+        $this->dhonmigrate->constraint('255')->field('password_hash', 'VARCHAR');
+        $this->dhonmigrate->constraint('255')->field('password_reset_token', 'VARCHAR', 'nullable');
+        $this->dhonmigrate->constraint('6')->default('10')->field('status', 'smallint');
+        $this->dhonmigrate->field('created_at', 'INT');
+        $this->dhonmigrate->field('updated_at', 'INT');
+        $this->dhonmigrate->constraint('255')->field('verification_token', 'VARCHAR', 'nullable');
+        $this->dhonmigrate->constraint('30')->field('google_id', 'VARCHAR', 'nullable');
+        $this->dhonmigrate->constraint('200')->field('google_name', 'VARCHAR', 'nullable');
+        $this->dhonmigrate->constraint('200')->field('google_picture', 'VARCHAR', 'nullable');
+        $this->dhonmigrate->constraint('20')->field('google_gender', 'VARCHAR', 'nullable');
+        $this->dhonmigrate->constraint('200')->field('google_link', 'VARCHAR', 'nullable');
+        $this->dhonmigrate->constraint('30')->field('fb_id', 'VARCHAR', 'nullable');
+        $this->dhonmigrate->constraint('200')->field('fb_name', 'VARCHAR', 'nullable');
+        $this->dhonmigrate->constraint('200')->field('fb_picture', 'VARCHAR', 'nullable');
+        $this->dhonmigrate->add_key('id');
+        $this->dhonmigrate->create_table('force');
     }
 
     public function change()
@@ -122,4 +144,3 @@ class Migration_Api
         }
     }
 }
-        

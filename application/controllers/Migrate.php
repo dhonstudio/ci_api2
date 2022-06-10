@@ -8,7 +8,7 @@ class Migrate extends CI_Controller
     |  Set up Migration Database and Action
     | ------------------------------------------------------------------
     */
-    public $migration_database  = ''; // fill with migration database
+    public $migration_database  = 'project'; // fill with migration database
     protected $migration_action = 'up'; // 'up' | 'change' | 'drop'
 
     public $root_path;
@@ -29,8 +29,8 @@ class Migrate extends CI_Controller
 
     public function index()
     {
-        $migration_file     = 'api';
-        $migration_version  = '20220609231342';
+        $migration_file     = 'hit';
+        $migration_version  = '20220610100646';
         $this->dhonmigrate->migrate($migration_version, $migration_file, $this->migration_action);
     }
 }
