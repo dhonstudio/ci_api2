@@ -7,7 +7,7 @@ class Migration_Hit
     public function __construct(array $params)
     {
         $root_path = $params['root_path'];
-        require_once __DIR__ . $root_path . 'assets/ci_libraries/DhonMigrate.php';
+        require_once __DIR__ . $root_path . 'assets/ci_libraries/DhonMigrate-1.0.0.php';
         $this->dhonmigrate = new DhonMigrate();
     }
 
