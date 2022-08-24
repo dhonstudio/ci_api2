@@ -18,7 +18,7 @@ class Migrate extends CI_Controller
     {
         parent::__construct();
 
-        require_once __DIR__ . $this->root_path . 'assets/ci_libraries/DhonMigrate.php';
+        require_once __DIR__ . $this->root_path . 'assets/ci_libraries/DhonMigrate-1.0.0.php';
         $this->dhonmigrate = new DhonMigrate();
     }
 
