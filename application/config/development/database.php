@@ -86,6 +86,6 @@ include APPPATH . "config/testing/database.php";
 
 foreach ($db as $name => $set) {
 	$set['username'] = 'root';
-	$set['password'] = '';
+	$set['password'] = 'root';
 	$db[$name] = $set;
 }
